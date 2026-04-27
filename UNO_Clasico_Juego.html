@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UNO Clásico</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Nunito+Sans:wght@400;600&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito Sans', sans-serif;
+    background: #1a0a2e;
+    color: #fff;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .bg-pattern {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background-image: radial-gradient(circle at 20% 50%, #2d0f4e 0%, transparent 50%),
+                      radial-gradient(circle at 80% 20%, #0f1e4e 0%, transparent 50%),
+                      radial-gradient(circle at 60% 80%, #4e0f1e 0%, transparent 40%);
+    z-index: 0;
+  }
+
+  .game-wrapper {
+    position: relative; z-index: 1;
+    max-width: 1000px; margin: 0 auto;
+    padding: 12px;
+    display: flex; flex-direction: column; gap: 12px;
+    min-height: 100vh;
+  }
+
+  .uno-title {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 900; font-size: 2.4rem;
+    text-align: center;
+    background: linear-gradient(135deg, #ff3d3d, #ffb800, #00c94a, #0084ff);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    letter-spacing: 4px;
+    text-shadow: none;
+  }
+
+  .status-bar {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    padding: 10px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 0.9rem;
+  }
+
+  .turn-indicator {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800; font-size: 1rem;
+    padding: 4px 14px;
+    border-radius: 20px;
+  }
+  .turn-player { background: #00c94a22; color: #00c94a; border: 1px solid #00c94a55; }
+  .turn-machine { background: #ff3d3d22; color: #ff5e5e; border: 1px solid #ff3d3d55; }
+
+  .color-badge {
+    display: inline-block;
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 0.78rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .cb-rojo    { background: #ff3d3d33; color: #ff6b6b; border: 1px solid #ff3d3d55; }
+  .cb-verde   { background: #00c94a33; color: #4dff7c; border: 1px solid #00c94a55; }
+  .cb-amarillo{ background: #ffb80033; color: #ffd34d; border: 1px solid #ffb80055; }
+  .cb-azul    { background: #0084ff33; color: #4daaff; border: 1px solid #0084ff55; }
+  .cb-comodin { background: #ffffff22; color: #ddd; border: 1px solid #ffffff44; }
+
+  .zone {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 14px;
+    padding: 12px;
+  }
+
+  .zone-label {
+    font-size: 0.7rem; font-weight: 600; letter-spacing: 2px;
+    text-transform: uppercase; color: rgba(255,255,255,0.4);
+    margin-bottom: 8px;
+  }
+
+  .machine-hand {
+    display: flex; flex-wrap: wrap; gap: 4px;
+  }
+
+  .card-back {
+    width: 44px; height: 62px;
+    border-radius: 7px;
+    background: linear-gradient(135deg, #cc0000 0%, #ee0000 50%, #cc0000 100%);
+    border: 2px solid rgba(255,255,255,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; color: rgba(255,255,255,0.4);
+    font-family: 'Nunito', sans-serif; font-weight: 900;
+  }
+
+  .center-area {
+    display: flex; align-items: center; justify-content: center; gap: 20px;
+    padding: 16px 0;
+  }
+
+  .deck-pile {
+    width: 72px; height: 100px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #cc0000, #ee0000);
+    border: 3px solid rgba(255,255,255,0.25);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 4px;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 4px 4px 0 rgba(0,0,0,0.4);
+  }
+  .deck-pile:hover { transform: translateY(-3px) scale(1.04); box-shadow: 4px 7px 0 rgba(0,0,0,0.4); }
+  .deck-pile.disabled { cursor: not-allowed; opacity: 0.5; }
+  .deck-pile span { font-family: 'Nunito', sans-serif; font-weight: 900; color: rgba(255,255,255,0.7); font-size: 0.7rem; letter-spacing: 2px; }
+  .deck-count { font-size: 1.2rem !important; letter-spacing: 0 !important; color: #fff !important; }
+
+  .discard-pile {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+
+  .card {
+    width: 72px; height: 100px;
+    border-radius: 10px;
+    border: 3px solid rgba(255,255,255,0.3);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-family: 'Nunito', sans-serif; font-weight: 900;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 3px 3px 0 rgba(0,0,0,0.4);
+    user-select: none;
+  }
+
+  .card-rojo    { background: linear-gradient(160deg, #ff3d3d, #cc1111); }
+  .card-verde   { background: linear-gradient(160deg, #00c94a, #008f34); }
+  .card-amarillo{ background: linear-gradient(160deg, #ffb800, #e08000); }
+  .card-azul    { background: linear-gradient(160deg, #0084ff, #0055cc); }
+  .card-comodin { background: linear-gradient(160deg, #2d2d2d, #111); border-color: rgba(255,255,255,0.4); }
+
+  .card:hover:not(.disabled) { transform: translateY(-6px) scale(1.06); box-shadow: 3px 9px 0 rgba(0,0,0,0.4); }
+  .card.disabled { cursor: not-allowed; opacity: 0.45; }
+  .card.playable { box-shadow: 0 0 0 2px #fff, 3px 3px 0 rgba(0,0,0,0.4); }
+  .card.playable:hover { box-shadow: 0 0 0 3px #ffffffcc, 3px 9px 0 rgba(0,0,0,0.4); transform: translateY(-8px) scale(1.07); }
+
+  .card-num { font-size: 1.8rem; line-height: 1; color: rgba(255,255,255,0.95); text-shadow: 1px 1px 2px rgba(0,0,0,0.4); }
+  .card-sym { font-size: 0.9rem; line-height: 1.2; color: rgba(255,255,255,0.95); text-align: center; text-shadow: 1px 1px 2px rgba(0,0,0,0.4); }
+  .card-clr { font-size: 0.6rem; color: rgba(255,255,255,0.65); letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
+
+  .card-corner-tl { position: absolute; top: 4px; left: 5px; font-size: 0.75rem; color: rgba(255,255,255,0.8); }
+  .card-corner-br { position: absolute; bottom: 4px; right: 5px; font-size: 0.75rem; color: rgba(255,255,255,0.8); transform: rotate(180deg); }
+
+  .player-hand {
+    display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+  }
+
+  .action-row {
+    display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap;
+  }
+
+  .btn {
+    font-family: 'Nunito', sans-serif; font-weight: 800;
+    padding: 9px 20px; border-radius: 25px; border: none;
+    cursor: pointer; font-size: 0.9rem; transition: all 0.15s;
+    letter-spacing: 0.5px;
+  }
+  .btn:hover { transform: translateY(-2px); }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-uno {
+    background: #ee0000; color: #fff;
+    box-shadow: 0 4px 0 #880000;
+    font-size: 1rem; letter-spacing: 2px;
+  }
+  .btn-uno:hover { box-shadow: 0 6px 0 #880000; }
+
+  .btn-pass {
+    background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+
+  .log-area {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.6);
+    max-height: 80px;
+    overflow-y: auto;
+    line-height: 1.7;
+  }
+
+  .log-area p { margin: 0; }
+  .log-entry { padding: 1px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .log-entry:last-child { color: #ffffffcc; }
+
+  .color-picker-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.75); z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .color-picker-box {
+    background: #1a0a2e;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+  }
+
+  .color-picker-box h3 {
+    font-family: 'Nunito', sans-serif; font-weight: 800;
+    margin-bottom: 16px; font-size: 1.1rem;
+  }
+
+  .color-btns { display: flex; gap: 12px; }
+  .color-btn {
+    width: 64px; height: 64px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.2);
+    cursor: pointer; transition: transform 0.15s, border-color 0.15s;
+    font-size: 0;
+  }
+  .color-btn:hover { transform: scale(1.15); border-color: rgba(255,255,255,0.7); }
+  .color-btn-rojo    { background: #ff3d3d; }
+  .color-btn-verde   { background: #00c94a; }
+  .color-btn-amarillo{ background: #ffb800; }
+  .color-btn-azul    { background: #0084ff; }
+
+  .overlay-modal {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85); z-index: 200;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .modal-box {
+    background: #1a0a2e;
+    border: 2px solid rgba(255,255,255,0.25);
+    border-radius: 20px;
+    padding: 36px 48px;
+    text-align: center;
+  }
+
+  .modal-box h2 {
+    font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 2.5rem;
+    margin-bottom: 8px;
+  }
+  .win-text { color: #00c94a; }
+  .lose-text { color: #ff3d3d; }
+
+  .modal-box p { color: rgba(255,255,255,0.6); margin-bottom: 20px; }
+
+  .btn-restart {
+    background: linear-gradient(135deg, #ee0000, #ff6600);
+    color: #fff; font-size: 1rem; letter-spacing: 1px;
+    padding: 12px 28px; border-radius: 30px;
+    box-shadow: 0 4px 0 #880000;
+  }
+
+  .stats-row {
+    display: flex; gap: 10px; justify-content: center;
+  }
+  .stat-box {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 8px 14px; text-align: center; flex: 1; max-width: 120px;
+  }
+  .stat-label { font-size: 0.65rem; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.35); }
+  .stat-val { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1.3rem; margin-top: 2px; }
+
+  .uno-badge {
+    background: #ee0000; color: #fff;
+    font-family: 'Nunito', sans-serif; font-weight: 900;
+    font-size: 0.7rem; letter-spacing: 2px;
+    padding: 2px 8px; border-radius: 10px;
+    display: inline-block; margin-left: 6px;
+    animation: pulse 0.8s infinite alternate;
+  }
+  @keyframes pulse { from { opacity:1; } to { opacity:0.5; } }
+
+  .machine-info { display: flex; align-items: center; gap: 8px; }
+</style>
+</head>
+<body>
+<div class="bg-pattern"></div>
+<div class="game-wrapper" id="app">
+  <h1 class="uno-title">UNO</h1>
+
+  <div class="status-bar" id="statusBar">
+    <span id="turnLabel" class="turn-indicator turn-player">Tu turno</span>
+    <span>Color activo: <span id="activeColor" class="color-badge cb-rojo">-</span></span>
+    <span id="directionLabel" style="font-size:0.78rem;color:rgba(255,255,255,0.45);">→ Normal</span>
+  </div>
+
+  <div class="zone" id="machineZone">
+    <div class="zone-label">
+      <span class="machine-info">Máquina <span id="machineUNO" class="uno-badge" style="display:none">¡UNO!</span></span>
+    </div>
+    <div class="machine-hand" id="machineHand"></div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-box">
+      <div class="stat-label">Tus cartas</div>
+      <div class="stat-val" id="statPlayer">7</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Mazo (Y)</div>
+      <div class="stat-val" id="statDeck">93</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Cartas máquina</div>
+      <div class="stat-val" id="statMachine">7</div>
+    </div>
+  </div>
+
+  <div class="center-area">
+    <div style="text-align:center">
+      <div class="zone-label" style="margin-bottom:6px">Mazo</div>
+      <div class="deck-pile" id="deckPile" onclick="drawCard()">
+        <span>UNO</span>
+        <span class="deck-count" id="deckCount">93</span>
+      </div>
+    </div>
+    <div class="discard-pile" id="discardPile">
+      <div class="zone-label">Descarte (U)</div>
+      <div class="card" id="topCard"></div>
+    </div>
+  </div>
+
+  <div class="zone" id="playerZone">
+    <div class="zone-label">Tu mano</div>
+    <div class="player-hand" id="playerHand"></div>
+  </div>
+
+  <div class="action-row">
+    <button class="btn btn-uno" onclick="declareUNO()" id="unoBtn">¡UNO!</button>
+    <button class="btn btn-pass" onclick="passTurn()" id="passBtn">Pasar turno</button>
+  </div>
+
+  <div class="log-area" id="logArea"></div>
+</div>
+
+<div class="color-picker-overlay" id="colorPicker" style="display:none">
+  <div class="color-picker-box">
+    <h3>¿Qué color elijes?</h3>
+    <div class="color-btns">
+      <button class="color-btn color-btn-rojo"    onclick="chooseColor('Rojo')"></button>
+      <button class="color-btn color-btn-verde"   onclick="chooseColor('Verde')"></button>
+      <button class="color-btn color-btn-amarillo" onclick="chooseColor('Amarillo')"></button>
+      <button class="color-btn color-btn-azul"    onclick="chooseColor('Azul')"></button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay-modal" id="gameOverModal" style="display:none">
+  <div class="modal-box">
+    <h2 id="gameOverTitle"></h2>
+    <p id="gameOverMsg"></p>
+    <button class="btn btn-restart" onclick="startGame()">Jugar de nuevo</button>
+  </div>
+</div>
+
+<script>
+const CARDS = [];
+const COLORS = ['Rojo','Verde','Amarillo','Azul'];
+const COLOR_MAP = { Rojo:'rojo', Verde:'verde', Amarillo:'amarillo', Azul:'azul' };
+const COLOR_BADGE = { Rojo:'cb-rojo', Verde:'cb-verde', Amarillo:'cb-amarillo', Azul:'cb-azul', Comodín:'cb-comodin' };
+
+function buildDeck() {
+  const deck = [];
+  const addCard = (color, sym, display) => {
+    deck.push({ color, sym, display });
+  };
+  for (const c of COLORS) {
+    for (let n = 1; n <= 9; n++) {
+      addCard(c, String(n), String(n));
+      addCard(c, String(n), String(n));
+    }
+    addCard(c, '+2', '+2');
+    addCard(c, '+2', '+2');
+    addCard(c, 'Reversa', 'REV');
+    addCard(c, 'Reversa', 'REV');
+    addCard(c, 'Bloqueo', 'BLQ');
+    addCard(c, 'Bloqueo', 'BLQ');
+    addCard(c, '+4', '+4');
+  }
+  return deck;
+}
+
+let G = {};
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function startGame() {
+  document.getElementById('gameOverModal').style.display = 'none';
+  document.getElementById('logArea').innerHTML = '';
+
+  const deck = shuffle(buildDeck());
+  G = {
+    deck,
+    player: [],
+    machine: [],
+    discard: [],
+    U: null,
+    T: 1,
+    direction: 1,
+    unoPlayer: false,
+    unoMachine: false,
+    drew: false,
+    pendingWild: null,
+    skipNext: false,
+    gameOver: false
+  };
+
+  for (let i = 0; i < 7; i++) {
+    G.player.push(G.deck.pop());
+    G.machine.push(G.deck.pop());
+  }
+
+  let first;
+  do {
+    first = G.deck.pop();
+    if (first.sym !== '+4' && first.sym !== 'Reversa' && first.sym !== 'Bloqueo' && first.sym !== '+2') break;
+    G.deck.unshift(first);
+    shuffle(G.deck);
+  } while (true);
+
+  G.U = first;
+  G.discard.push(first);
+  G.T = 1;
+
+  log('¡Juego iniciado! Primera carta: ' + cardLabel(G.U));
+  render();
+}
+
+function cardLabel(c) {
+  if (!c) return '?';
+  return c.color + ' ' + c.display;
+}
+
+function cardCssColor(c) {
+  return 'card-' + (c.color === 'Comodín' ? 'comodin' : COLOR_MAP[c.color] || 'comodin');
+}
+
+function isPlayable(card) {
+  if (!G.U) return true;
+  if (card.sym === '+4') return true;
+  if (card.color === G.U.color) return true;
+  if (card.sym === G.U.sym) return true;
+  return false;
+}
+
+function makeCardEl(card, idx, forPlayer) {
+  const div = document.createElement('div');
+  div.className = 'card ' + cardCssColor(card);
+  const playable = forPlayer && G.T === 1 && isPlayable(card) && !G.gameOver;
+  if (playable) div.classList.add('playable');
+  if (!playable && forPlayer) div.classList.add('disabled');
+
+  const corner = document.createElement('div');
+  corner.className = 'card-corner-tl';
+  corner.textContent = card.display;
+
+  const cornerBR = document.createElement('div');
+  cornerBR.className = 'card-corner-br';
+  cornerBR.textContent = card.display;
+
+  const num = document.createElement('div');
+  if (['1','2','3','4','5','6','7','8','9'].includes(card.sym)) {
+    num.className = 'card-num'; num.textContent = card.sym;
+  } else {
+    num.className = 'card-sym'; num.textContent = card.display;
+  }
+
+  const clr = document.createElement('div');
+  clr.className = 'card-clr'; clr.textContent = card.color;
+
+  div.appendChild(corner);
+  div.appendChild(num);
+  div.appendChild(clr);
+  div.appendChild(cornerBR);
+
+  if (forPlayer && playable) {
+    div.onclick = () => playCard(idx);
+  }
+  return div;
+}
+
+function render() {
+  const mh = document.getElementById('machineHand');
+  mh.innerHTML = '';
+  G.machine.forEach(() => {
+    const b = document.createElement('div');
+    b.className = 'card-back'; b.textContent = 'U';
+    mh.appendChild(b);
+  });
+
+  const ph = document.getElementById('playerHand');
+  ph.innerHTML = '';
+  G.player.forEach((c, i) => {
+    ph.appendChild(makeCardEl(c, i, true));
+  });
+
+  const topCard = document.getElementById('topCard');
+  topCard.className = 'card ' + cardCssColor(G.U);
+  topCard.innerHTML = '';
+  if (G.U) {
+    const corner = document.createElement('div');
+    corner.className = 'card-corner-tl'; corner.textContent = G.U.display;
+    const num = document.createElement('div');
+    num.className = ['1','2','3','4','5','6','7','8','9'].includes(G.U.sym) ? 'card-num' : 'card-sym';
+    num.textContent = G.U.display;
+    const clr = document.createElement('div');
+    clr.className = 'card-clr'; clr.textContent = G.U.color;
+    topCard.appendChild(corner);
+    topCard.appendChild(num);
+    topCard.appendChild(clr);
+  }
+
+  document.getElementById('deckCount').textContent = G.deck.length;
+  document.getElementById('statPlayer').textContent = G.player.length;
+  document.getElementById('statMachine').textContent = G.machine.length;
+  document.getElementById('statDeck').textContent = G.deck.length;
+
+  const turnLabel = document.getElementById('turnLabel');
+  if (G.T === 1) {
+    turnLabel.textContent = 'Tu turno';
+    turnLabel.className = 'turn-indicator turn-player';
+  } else {
+    turnLabel.textContent = 'Turno: Máquina';
+    turnLabel.className = 'turn-indicator turn-machine';
+  }
+
+  const colorName = G.U ? G.U.color : '-';
+  const cb = document.getElementById('activeColor');
+  cb.textContent = colorName;
+  cb.className = 'color-badge ' + (COLOR_BADGE[colorName] || 'cb-comodin');
+
+  document.getElementById('directionLabel').textContent = G.direction === 1 ? '→ Normal' : '← Invertido';
+
+  const unoM = document.getElementById('machineUNO');
+  unoM.style.display = G.machine.length === 1 ? 'inline-block' : 'none';
+
+  const deckPile = document.getElementById('deckPile');
+  deckPile.classList.toggle('disabled', G.T !== 1 || G.gameOver);
+
+  const passBtn = document.getElementById('passBtn');
+  passBtn.style.display = G.drew ? 'inline-block' : 'none';
+}
+
+function drawFromDeck(hand) {
+  if (G.deck.length === 0) {
+    if (G.discard.length <= 1) return false;
+    const top = G.discard.pop();
+    G.deck = shuffle([...G.discard]);
+    G.discard = [top];
+    log('Mazo vacío — se rebarajó el descarte.');
+  }
+  if (G.deck.length === 0) return false;
+  hand.push(G.deck.pop());
+  return true;
+}
+
+function drawMultiple(hand, n) {
+  for (let i = 0; i < n; i++) drawFromDeck(hand);
+}
+
+function playCard(idx) {
+  if (G.T !== 1 || G.gameOver) return;
+  const card = G.player[idx];
+  if (!isPlayable(card)) return;
+
+  G.player.splice(idx, 1);
+  G.discard.push(card);
+
+  if (card.sym === '+4') {
+    G.pendingWild = { type: '+4', card };
+    document.getElementById('colorPicker').style.display = 'flex';
+    return;
+  }
+
+  if (card.sym === 'Reversa') {
+    G.direction *= -1;
+    log('Jugaste Reversa ' + card.color + ' — dirección invertida (en 2 jugadores = salto).');
+    G.U = card;
+    applyPostPlay(card);
+    return;
+  }
+
+  G.U = card;
+  log('Jugaste: ' + cardLabel(card));
+  applyPostPlay(card);
+}
+
+function applyPostPlay(card) {
+  checkUNO();
+
+  if (G.player.length === 0) {
+    endGame(true);
+    return;
+  }
+
+  if (card.sym === '+2') {
+    log('Máquina roba 2 cartas y pierde turno.');
+    drawMultiple(G.machine, 2);
+    G.T = 1;
+    G.drew = false;
+    render();
+    return;
+  }
+
+  if (card.sym === 'Bloqueo') {
+    log('Máquina bloqueada — pierdes tu turno adicional.');
+    G.T = 1;
+    G.drew = false;
+    render();
+    return;
+  }
+
+  if (card.sym === 'Reversa') {
+    G.T = 1;
+    G.drew = false;
+    render();
+    return;
+  }
+
+  G.T = 2;
+  G.drew = false;
+  render();
+  setTimeout(machineTurn, 900);
+}
+
+function chooseColor(color) {
+  document.getElementById('colorPicker').style.display = 'none';
+  const { type, card } = G.pendingWild;
+  G.pendingWild = null;
+  card.color = color;
+  G.U = card;
+  log('Jugaste ' + type + ' — elegiste color: ' + color);
+
+  checkUNO();
+  if (G.player.length === 0) { endGame(true); return; }
+
+  if (type === '+4') {
+    log('Máquina roba 4 cartas y pierde turno.');
+    drawMultiple(G.machine, 4);
+    G.T = 1;
+    G.drew = false;
+    render();
+  }
+}
+
+function drawCard() {
+  if (G.T !== 1 || G.gameOver || G.drew) return;
+  const ok = drawFromDeck(G.player);
+  if (!ok) { log('¡No hay cartas!'); return; }
+  G.drew = true;
+  const drawn = G.player[G.player.length - 1];
+  log('Robaste: ' + cardLabel(drawn));
+  if (isPlayable(drawn)) {
+    log('Puedes jugar la carta robada o pasar turno.');
+  } else {
+    log('No puedes jugar la carta robada. Turno pasa a la máquina.');
+    G.drew = false;
+    G.T = 2;
+    render();
+    setTimeout(machineTurn, 900);
+    return;
+  }
+  render();
+}
+
+function passTurn() {
+  if (!G.drew) return;
+  G.drew = false;
+  G.T = 2;
+  render();
+  setTimeout(machineTurn, 900);
+}
+
+function declareUNO() {
+  if (G.player.length === 1) {
+    G.unoPlayer = true;
+    log('¡UNO declarado!');
+  } else if (G.player.length > 2) {
+    log('UNO solo se puede declarar con 1 carta. Robas 2 como penalización.');
+    drawMultiple(G.player, 2);
+    render();
+  }
+}
+
+function checkUNO() {
+  if (G.machine.length === 1) G.unoMachine = true;
+}
+
+function machineTurn() {
+  if (G.gameOver) return;
+
+  let played = false;
+
+  const priority = ['+4', '+2', 'Bloqueo', 'Reversa'];
+  let idx = -1;
+
+  for (const sym of priority) {
+    const i = G.machine.findIndex(c => isPlayableCard(c) && c.sym === sym);
+    if (i !== -1) { idx = i; break; }
+  }
+
+  if (idx === -1) {
+    idx = G.machine.findIndex(c => isPlayableCard(c));
+  }
+
+  if (idx !== -1) {
+    const card = G.machine.splice(idx, 1)[0];
+    G.discard.push(card);
+
+    if (card.sym === '+4') {
+      const colors = ['Rojo','Verde','Amarillo','Azul'];
+      const counts = {};
+      colors.forEach(c => { counts[c] = G.machine.filter(x => x.color === c).length; });
+      const best = colors.reduce((a, b) => counts[a] >= counts[b] ? a : b);
+      card.color = best;
+      G.U = card;
+      log('Máquina jugó +4 y eligió color: ' + best + '. Robas 4 cartas.');
+      drawMultiple(G.player, 4);
+      played = true;
+      checkUNOMachine();
+      if (G.machine.length === 0) { endGame(false); return; }
+      G.T = 1; G.drew = false; render();
+      return;
+    }
+
+    G.U = card;
+    log('Máquina jugó: ' + cardLabel(card));
+    played = true;
+
+    checkUNOMachine();
+    if (G.machine.length === 0) { endGame(false); return; }
+
+    if (card.sym === '+2') {
+      log('¡Robas 2 cartas!');
+      drawMultiple(G.player, 2);
+      G.T = 2; G.drew = false; render();
+      setTimeout(machineTurn, 900);
+      return;
+    }
+    if (card.sym === 'Bloqueo') {
+      log('Máquina te bloqueó. Vuelve a jugar la máquina.');
+      G.T = 2; G.drew = false; render();
+      setTimeout(machineTurn, 900);
+      return;
+    }
+    if (card.sym === 'Reversa') {
+      log('Máquina jugó Reversa — vuelve a jugar la máquina.');
+      G.T = 2; G.drew = false; render();
+      setTimeout(machineTurn, 900);
+      return;
+    }
+
+    G.T = 1; G.drew = false; render();
+    return;
+  }
+
+  if (!played) {
+    log('Máquina roba carta.');
+    const ok = drawFromDeck(G.machine);
+    if (!ok) { log('No hay cartas en el mazo.'); G.T = 1; G.drew = false; render(); return; }
+    const drawn = G.machine[G.machine.length - 1];
+    if (isPlayableCard(drawn)) {
+      log('Máquina juega la carta robada: ' + cardLabel(drawn));
+      G.machine.pop();
+      G.discard.push(drawn);
+      G.U = drawn;
+      checkUNOMachine();
+      if (G.machine.length === 0) { endGame(false); return; }
+      if (drawn.sym === '+4') {
+        const colors = ['Rojo','Verde','Amarillo','Azul'];
+        const counts = {};
+        colors.forEach(c => { counts[c] = G.machine.filter(x => x.color === c).length; });
+        const best = colors.reduce((a, b) => counts[a] >= counts[b] ? a : b);
+        drawn.color = best;
+        G.U = drawn;
+        log('Máquina eligió color: ' + best + '. Robas 4.');
+        drawMultiple(G.player, 4);
+        G.T = 1; G.drew = false; render(); return;
+      }
+      if (drawn.sym === '+2') { drawMultiple(G.player, 2); log('¡Robas 2!'); G.T = 2; G.drew=false; render(); setTimeout(machineTurn,900); return; }
+      if (drawn.sym === 'Bloqueo') { G.T = 2; G.drew=false; render(); setTimeout(machineTurn,900); return; }
+      if (drawn.sym === 'Reversa') { G.T = 2; G.drew=false; render(); setTimeout(machineTurn,900); return; }
+    } else {
+      log('Máquina no pudo jugar.');
+    }
+    G.T = 1; G.drew = false; render();
+  }
+}
+
+function isPlayableCard(card) {
+  if (!G.U) return true;
+  if (card.sym === '+4') return true;
+  if (card.color === G.U.color) return true;
+  if (card.sym === G.U.sym) return true;
+  return false;
+}
+
+function checkUNOMachine() {
+  if (G.machine.length === 1) {
+    G.unoMachine = true;
+    log('¡La máquina dice UNO!');
+  }
+}
+
+function endGame(playerWon) {
+  G.gameOver = true;
+  render();
+  const modal = document.getElementById('gameOverModal');
+  const title = document.getElementById('gameOverTitle');
+  const msg = document.getElementById('gameOverMsg');
+  if (playerWon) {
+    title.textContent = '¡GANASTE!';
+    title.className = 'win-text';
+    msg.textContent = '¡Felicidades! Vaciaste tu mano. ¡UNO!';
+  } else {
+    title.textContent = '¡PERDISTE!';
+    title.className = 'lose-text';
+    msg.textContent = 'La máquina ganó esta ronda. ¡Vuelve a intentarlo!';
+  }
+  modal.style.display = 'flex';
+}
+
+function log(msg) {
+  const area = document.getElementById('logArea');
+  const p = document.createElement('p');
+  p.className = 'log-entry';
+  p.textContent = msg;
+  area.appendChild(p);
+  area.scrollTop = area.scrollHeight;
+}
+
+startGame();
+</script>
+</body>
+</html>
